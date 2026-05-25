@@ -1,2 +1,190 @@
-# FIELD_Competition_2023
-The compilation of the project file of the FIELD Competition held in 2023, KAIST with the participants who are undergraduate students majoring in Industrial Engineering in Korea.
+# 2023 FIELD Camp – 주제 2: 원유 공급망 재고 최적화
+
+> **FIELD (Factory/Industry Engineering Leadership Development) Camp 2023**  
+> 주제 2 · 팀 프로젝트 · 2023년 여름
+
+---
+
+## 📌 프로젝트 개요
+
+러시아-우크라이나 전쟁 전후의 국제 원유 시장 변화를 반영하여, 한국의 원유 수입 공급망에 대한 **재고 관리 최적화 모델**을 설계하는 프로젝트입니다.  
+미국(USA) · 러시아(Russia) · 사우디아라비아(Saudi Arabia) 3개 국가를 대상으로, 전쟁 전/후 시나리오에서의 최적 주문 정책 `(Reorder Point R, Order Quantity Q)` 및 국가별 수입 비율을 도출합니다.
+
+### 시뮬레이션 설정
+
+| 항목 | 내용 |
+|---|---|
+| 1 Period | 5일 |
+| 6 Periods | 1개월 |
+| 총 시뮬레이션 기간 | 25 Periods (약 4개월) |
+| 수요 | 고정 7 단위/Period |
+| 초기 재고 | 100 단위 |
+| 재고 보유 비용 | 전쟁 전 8, 전쟁 후 10 (단위당/Period) |
+| 품절 패널티 | 유가의 3배 (단위당) |
+
+### 리드타임 분포 (정규분포, 단위: Period)
+
+| 국가 | 전쟁 전 Mean | 전쟁 전 Std | 전쟁 후 Mean | 전쟁 후 Std |
+|---|---|---|---|---|
+| USA | 8 | 1.5 | 8 | 2.0 |
+| Saudi Arabia | 6 | 0.5 | 6 | 1.5 |
+| Russia | 5 | 0.5 | 7 | **4.0** |
+
+> 전쟁 이후 러시아의 리드타임 불확실성이 크게 증가한 점이 특징입니다.
+
+---
+
+## 👤 기여 및 역할
+
+프로젝트에서 **수요 예측 및 최적 주문 정책 산출** 파트를 담당했습니다.
+
+### 1. ARIMA 기반 수요 예측
+- `2023_FIELD_Data.xlsx`의 국가별 원유 수입 단가(CIF 기준) 시계열 데이터를 활용하여 **ARIMA 모델**로 전쟁 전/후 유가를 예측
+- 예측 기간: 전쟁 전 (2020.01 ~ 2021.02), 전쟁 후 (2020.01 ~ 2022.02)
+- 예측된 유가 값은 `oil_price_list`로 시뮬레이션 코드에 반영
+
+### 2. 국가별 원유 수입 비율 결정
+- SCM 관점에서 **공급 안정성과 비용 효율성**을 동시에 고려
+- 몬테카를로 시뮬레이션을 통해 도출된 국가별 기대 총비용을 기반으로, 역제곱 가중치(Inverse-Squared Mean Cost) 방식으로 최적 수입 비율을 산정
+- 비용이 낮고 안정적인 국가에 더 높은 비중을 할당
+
+  ```
+  전쟁 전: 미국 ≈ X%, 러시아 ≈ Y%, 사우디 ≈ Z%
+  전쟁 후: (러시아 비중 감소, 사우디 비중 증가)
+  ```
+
+### 3. SCM 이론 기반 최적 (R, Q) 정책 도출
+- **Reorder Point (R)**: 재주문점, 재고 수준이 R 이하로 떨어지면 주문 트리거
+- **Order Quantity (Q)**: 1회 주문량
+- **Safety Stock**: 리드타임 불확실성 및 수요 변동을 고려한 안전 재고량
+- 탐색 범위 `R ∈ [5, 85]`, `Q ∈ [5, 85]` (Step 20)에 대해 Monte Carlo 시뮬레이션 (100회 반복 × 500 Period) 수행 후 최소 기대비용 조합 도출
+- 결과: `Optimization_Result2.csv`
+
+---
+
+## 파일 구조
+
+```
+2023-FIELD-Competition/
+│
+├── README.md
+│
+├── src/                                  # 소스 코드
+│   ├── 2023_FIELD_Code_1.py              # (R,Q) 최적화 자동 시뮬레이션
+│   ├── 2023_FIELD_Code_2.py              # 수동 인터랙티브 시뮬레이션
+│   ├── 2023_FIELD_Code_Simulation.ipynb  # 컴페티션용 시뮬레이션 (고정 시드)
+│   └── 국가별_석유_구입_비율.py           # 국가별 수입 비율 산정
+│
+├── data/
+│   └── 2023_FIELD_Data.xlsx              # 국가별 원유 수입 실적 데이터 (2019~2022)
+│
+├── results/
+│   └── Optimization_Result2.csv          # (R,Q) 최적화 결과
+│
+└── docs/                                 # 대회 관련 자료
+    ├── FIELD Competition 소개.docx
+    ├── 예선진행방식.pptx
+    ├── 2023-FIELD_CAMP-주제2-주제소개.pdf
+    ├── 2023-FIELD_CAMP-주제2-Session1.pdf
+    ├── 2023-FIELD-CAMP-주제2-Session2.pdf
+    ├── 2023-FIELD-CAMP-주제2-Session3.pdf
+    └── 필드 캠프 (3조).pdf               # 팀 최종 발표 자료
+```
+
+---
+
+## 📄 파일별 설명
+
+### `src/2023_FIELD_Code_1.py` — (R, Q) 최적화 자동 시뮬레이션
+전쟁 전/후 × 3개국 조합에 대해 모든 `(R, Q)` 파라미터 조합을 탐색하는 **그리드 서치 기반 Monte Carlo 시뮬레이션**입니다.
+
+- 각 `(R, Q)` 조합마다 500 Period 시뮬레이션을 100회 반복 실행
+- 기대 총비용(평균, 표준편차)을 계산하여 최적 3개 조합 출력
+- 비용 구성: 재고 보유 비용 + 주문 비용 + 품절 패널티
+- 결과를 `Optimization_Result2.csv`로 저장
+
+```bash
+python src/2023_FIELD_Code_1.py
+```
+
+### `src/2023_FIELD_Code_2.py` — 수동 인터랙티브 시뮬레이션
+사용자가 **매 Period마다 직접 주문 여부와 주문량을 결정**하는 대화형 시뮬레이션입니다.
+
+- 전쟁 전/후, 국가 선택 후 25 Period 진행
+- 매 기간마다 현재 재고·유가·비용 정보 제공 후 사용자 의사결정 입력
+- 결과를 `결과.csv`로 저장
+
+```bash
+python src/2023_FIELD_Code_2.py
+```
+
+### `src/2023_FIELD_Code_Simulation.ipynb` — 컴페티션용 시뮬레이션
+예선 대회에서 사용된 **고정 시드(seed) 기반 인터랙티브 시뮬레이션**입니다.
+
+- Case 1 (전쟁 전), Case 2 (전쟁 후) 순서로 진행
+- 동일 시드로 재현 가능한 환경 보장
+- 실제 컴페티션 유가 데이터 반영 (전쟁 전 ~65–76$/bbl, 전쟁 후 ~90–120$/bbl)
+
+### `src/국가별_석유_구입_비율.py` — 국가별 수입 비율 산정
+시뮬레이션으로 도출된 국가별 기대 비용을 이용해 **최적 수입 비율**을 계산합니다.
+
+- 비용이 낮을수록 높은 비중 → 역제곱(Inverse-Squared) 가중 정규화 적용
+- 전쟁 전/후 각각에 대한 비율 산출
+
+```bash
+python src/국가별_석유_구입_비율.py
+```
+
+### `data/2023_FIELD_Data.xlsx` — 원유 수입 실적 데이터
+한국의 국가별 원유 수입 데이터 (2019년 12월 ~ 2022년 2월 기준).
+
+| 컬럼 | 설명 |
+|---|---|
+| 물량 | 수입 물량 (천 배럴) |
+| 금액 | 수입 금액 (천 달러, CIF 기준) |
+| 단가 | 배럴당 단가 (달러/bbl) |
+
+> CIF(Cost, Insurance and Freight): 운송비 및 보험료 포함 가격
+
+### `results/Optimization_Result2.csv` — 최적화 결과
+`2023_FIELD_Code_1.py` 실행 결과. 각 `(R, Q)` 조합에 대한 기대 비용 평균 및 표준편차를 정리한 파일입니다.
+
+---
+
+## ⚙️ 실행 환경
+
+```
+Python 3.8+
+numpy
+pandas
+IPython (Code_2용)
+jupyter (Simulation.ipynb용)
+```
+
+```bash
+pip install numpy pandas ipython jupyter
+```
+
+---
+
+## 📊 주요 결과 요약
+
+### 전쟁 전 최적 (R, Q) — 예시
+각 국가의 최소 기대비용 Top 3 조합 (Code_1 실행 기준):
+
+- 비교적 안정적인 리드타임(사우디, 러시아)에서는 낮은 R, 적당한 Q가 유리
+- 리드타임 불확실성이 큰 미국은 높은 Safety Stock 확보 필요
+
+### 전쟁 후 수입 비율 변화
+| 국가 | 전쟁 전 비율 | 전쟁 후 비율 |
+|---|---|---|
+| 미국 (USA) | 높음 | 중간 |
+| 러시아 (Russia) | 중간 | **감소** (리드타임 불안정) |
+| 사우디 (Saudi) | 중간 | **증가** (상대적 안정) |
+
+---
+
+## 🏕️ FIELD Camp 소개
+
+**FIELD(Future Industrial Engineering Leaders Dreamers) Camp**는 미래의 핵심 리더들이 될 산업공학도들이 모여 서로의 꿈과 비전, 생각 등을 공유할 수 있는 교류의 장을 만든다는 목표 아래 모인 '전국 대학생 산업공학도 모임'인 FIELD에서 산업공학 전공 학부생을 대상으로 실제 산업 문제를 해결하는 경험을 제공하는 프로그램입니다.  
+본 프로젝트는 2023년 여름 캠프의 **주제 2 — 공급망 재고 관리** 트랙에서 수행되었습니다.
