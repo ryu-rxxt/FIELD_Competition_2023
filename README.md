@@ -1,6 +1,6 @@
 # 2023 FIELD Camp – 주제 2: 원유 공급망 재고 최적화
 
-> **FIELD (Factory/Industry Engineering Leadership Development) Camp 2023**  
+> **FIELD (Future Industrial Engineering Leaders Dreamers) Camp 2023**  
 > 주제 2 · 팀 프로젝트 · 2023년 여름
 
 ---
